@@ -78,7 +78,7 @@ def year_int_to_datetime(x):
 
 
 if __name__ == "__main__":
-    edgar_dictionary, date_of_data = import_data_from_local('edgar')
+    edgar_dictionary = import_data_from_local('edgar')
     keys_to_pop = ['TOTALS BY COUNTRY']
 
     for key in edgar_dictionary.keys():
@@ -108,6 +108,8 @@ if __name__ == "__main__":
         df['emitted_product_formula'] = emitted_product_formula
         df['emissions_quantity_units'] = emissions_quantity_units
         df['measurement_method_doi_or_url'] = measurement_method_doi_or_url
+        df['reporting_entity'] = 'edgar'
+
 
 # clean  data
 # add extra information
