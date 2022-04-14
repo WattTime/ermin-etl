@@ -19,4 +19,4 @@ for subsector in data_requirements.subsector:
             else:
                 df[column] = 1000000
 
-    df.to_csv(f'climate-trace_{subsector}-test_20220403.csv')
+    df.to_csv(f'climate-trace/climate-trace_{subsector}-test_20220403.csv')

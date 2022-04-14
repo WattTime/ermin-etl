@@ -78,7 +78,7 @@ def year_int_to_datetime(x):
 
 
 if __name__ == "__main__":
-    edgar_dictionary = import_data_from_local('edgar')
+    edgar_dictionary, date_of_data = import_data_from_local('edgar')
     keys_to_pop = ['TOTALS BY COUNTRY']
 
     for key in edgar_dictionary.keys():
@@ -105,14 +105,9 @@ if __name__ == "__main__":
                      value_name = 'emissions_quantity')
         df['start_time'] = df.apply(year_int_to_datetime, axis=1)
         df = df.drop(columns=['year'])
-        textStream = StringIO()
-        df_string = df.to_csv(textStream) # this with empty would write it as a string
-        # save temporary csv in a temp file
-        #
-
-        with open(df, newline='', mode='r', encoding='utf-8-sig') as csvfile:
-            print(csvfile)
-
+        df['emitted_product_formula'] = emitted_product_formula
+        df['emissions_quantity_units'] = emissions_quantity_units
+        df['measurement_method_doi_or_url'] = measurement_method_doi_or_url
 
 # clean  data
 # add extra information

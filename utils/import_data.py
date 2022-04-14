@@ -1,14 +1,21 @@
 import pandas as pd
 import os
 
+
 def import_data_from_local(reporting_entity):
     """take reporting entity name from cleaner and export a dictionary with original
-    filename as key and data as value"""
-    path_to_data = '/Users/christyjlewis/Google Drive/My Drive/Climate TRACE /Metamodeling/other_inventories/raw_data/'
+    filename as key and data as value
+
+    files input must have the following naming structures to be successfuly inported:
+
+    inventoroy-name_file-description_dateYYYYMMDD """
+
+    path_to_data = '/Users/christyjlewis/Google Drive/My Drive/Climate TRACE /Metamodeling/data/raw_data/'
     data = {}
     for file in os.listdir(path_to_data):
         inventory = file.split('_')[0]
         file_info = file.split('.')[0].strip(inventory).lstrip('_')
+
         if inventory == reporting_entity:
             print(f'Importing {file}')
             if file.endswith('.csv'):

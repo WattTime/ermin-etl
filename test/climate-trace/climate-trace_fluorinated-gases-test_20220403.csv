@@ -1,4 +1,4 @@
-,begin_date,end_date,iso3_country,CO2_emissions_tonnes,CH4_emissions_tonnes,N2O_emissions_tonnes,total_CO2e_100yr_GWP,total_CO2e_20yrGWP
+,begin_date,end_date,iso3_country,CO2_emissions_tonnes,CH4_emissions_tonnes,N2O_emissions_tonnes,total_CO2e_100yrGWP,total_CO2e_20yrGWP
 0,1/1/15,12/31/15,CHN,,,,1000000,1000000
 1,1/1/16,12/31/16,CHN,,,,1000000,1000000
 2,1/1/17,12/31/17,CHN,,,,1000000,1000000
