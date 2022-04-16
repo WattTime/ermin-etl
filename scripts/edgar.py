@@ -1,6 +1,7 @@
 import pandas as pd
 from datetime import datetime
 from utils.import_data import import_data_from_local
+from utils.adding_missing_info import *
 import re
 import numpy as np
 from ermin.validation import *
@@ -88,6 +89,7 @@ if __name__ == "__main__":
     # removing the sheets 'TOTALS BY COUNTRY' and the sheets with 1996 IPCC codes
     [edgar_dictionary.pop(key) for key in keys_to_pop]
     edgar_dictionary_clean = {}
+    sectors = [] # starting an emtpy list to collect all sectors for supplementary information table
 
     for key, df_with_header in edgar_dictionary.items():
         print(key)
@@ -95,6 +97,7 @@ if __name__ == "__main__":
             get_header_info(df_with_header)
         df = remove_header(df_with_header)
         df['original_inventory_sector']  = df.apply(clean_ipcc_code, axis=1)
+        sectors.append(df.original_inventory_sector)
         df = check_for_nan_columns(df)
         df = clean_column_names(df)
         year_columns= [col for col in df.columns if re.match(r'\d{4}', str(col)) is not None]
@@ -102,14 +105,15 @@ if __name__ == "__main__":
         df = df.groupby(by = ['producing_entity_name', 'producing_entity_id','original_inventory_sector'], as_index=False)[year_columns].sum()
         df = df.melt(id_vars = ['producing_entity_id', 'producing_entity_name', 'original_inventory_sector'],
                      var_name = 'year',
-                     value_name = 'emissions_quantity')
+                     value_name = 'emission_quantity')
         df['start_time'] = df.apply(year_int_to_datetime, axis=1)
         df = df.drop(columns=['year'])
         df['emitted_product_formula'] = emitted_product_formula
-        df['emissions_quantity_units'] = emissions_quantity_units
+        df['emission_quantity_units'] = emissions_quantity_units
         df['measurement_method_doi_or_url'] = measurement_method_doi_or_url
         df['reporting_entity'] = 'edgar'
-
+        print(df.dtypes)
+        warnings, errors, new_df = check_input_dataframe(df, spec_file='/Users/christyjlewis/ermin-etl/templates/ermin-specification.csv')
 
 # clean  data
 # add extra information
