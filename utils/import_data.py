@@ -2,7 +2,8 @@ import pandas as pd
 import os
 
 
-def import_data_from_local(reporting_entity):
+def import_data_from_local(reporting_entity, 
+                           path_to_data = '/Users/christyjlewis/Google Drive/My Drive/Climate TRACE /Metamodeling/data/raw_data/'):
     """take reporting entity name from cleaner and export a dictionary with original
     filename as key and data as value
 
@@ -10,7 +11,6 @@ def import_data_from_local(reporting_entity):
 
     inventoroy-name_file-description_dateYYYYMMDD """
 
-    path_to_data = '/Users/christyjlewis/Google Drive/My Drive/Climate TRACE /Metamodeling/data/raw_data/'
     data = {}
     for file in os.listdir(path_to_data):
         inventory = file.split('_')[0]
