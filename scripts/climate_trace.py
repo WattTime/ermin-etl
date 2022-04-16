@@ -23,7 +23,7 @@ def create_long_df(df):
     for data_column in data_columns:
         anchor_columns = ['start_time', 'end_time', 'producing_entity_id']
         anchor_columns.append(data_column)
-        data_df = df[anchor_columns]
+        data_df = df[anchor_columns].copy() # copy to avoid warning re: setting values in a slice
         data_df.rename(columns={f'{data_column}': 'emissions_quantity'}, inplace=True)
         data_df['emissions_quantity_units'] = 'tonnes'
         if data_column.endswith('GWP'):
@@ -32,8 +32,7 @@ def create_long_df(df):
             data_df['carbon_equivalency_method'] = equivalency
         else:
             data_df['emitted_product_formula'] = data_column.split('_')[0]
-        long_df = long_df.append(data_df)
-
+        long_df = pd.concat([long_df, data_df]) # use concat as append was deprecated
     return long_df
 
 
@@ -52,8 +51,10 @@ if __name__ == '__main__':
                         action='store_true')
     args = parser.parse_args()
 
-
-    climate_trace_dictionary = import_data_from_local('climate-trace', args.datadir)
+    climate_trace_dictionary = import_data_from_local(
+            'climate-trace',
+            path_to_data=args.datadir,
+            verbose=args.verbose)
 
     for key, df in climate_trace_dictionary.items():
         sector = key.split('_')[0]
@@ -67,9 +68,13 @@ if __name__ == '__main__':
         df = df.rename(columns={'begin_date': 'start_time',
                            'end_date': 'end_time',
                            'iso3_country': 'producing_entity_id'})
+        print(key)
+        print(df.columns)        
 
         df['start_time'], df['end_time'] = zip(*df.apply(year_to_datetime, axis=1))
+
         reshaped_df = create_long_df(df)
+        raise SystemExit(0)
         reshaped_df['original_inventory_sector'] = sector
         reshaped_df['reporting_entity'] = 'climate-trace'
         # test with ermin_validator
