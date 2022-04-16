@@ -8,9 +8,9 @@ required_dates_countries = pd.read_csv('climate-trace_required_dates_countries.c
 for subsector in data_requirements.subsector:
     columns = data_requirements.drop(['sector', 'subsector'], axis=1).columns
     df = pd.DataFrame(columns=columns)
-    data_columns_bool = data_requirements[data_requirements.subsector == subsector].drop(['sector', 'subsector', 'begin_date', 'end_date'], axis=1)
-    df[['begin_date', 'end_date', 'iso3_country']] = required_dates_countries[['begin_date', 'end_date', 'iso3_country']]
-    value_columns = columns.drop(['begin_date', 'end_date', 'iso3_country'])
+    data_columns_bool = data_requirements[data_requirements.subsector == subsector].drop(['sector', 'subsector', 'start_date', 'end_date'], axis=1)
+    df[['start_date', 'end_date', 'iso3_country']] = required_dates_countries[['start_date', 'end_date', 'iso3_country']]
+    value_columns = columns.drop(['start_date', 'end_date', 'iso3_country'])
 
     for column in value_columns:
         if data_columns_bool[f'{column}'].values[0] == True:

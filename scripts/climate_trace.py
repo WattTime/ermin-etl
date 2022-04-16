@@ -1,13 +1,17 @@
+# run with
+# python climate_trace.py -d ../test2 -c ../templates/climate-trace-specification.csv
 import pandas as pd
 from datetime import datetime
 import re
 from utils.import_data import import_data_from_local
+import utils.validation as eev
 import argparse
+import ermin.syntax as ermin_syntax
 
 
 def year_to_datetime(x):
-    start_time = datetime.isoformat(datetime.strptime(x.start_time, '%m/%d/%y'))
-    end_time = datetime.isoformat(datetime.strptime(x.end_time, '%m/%d/%y'))
+    start_time = datetime.isoformat(datetime.strptime(x.start_date, '%m/%d/%y'))
+    end_time = datetime.isoformat(datetime.strptime(x.end_date, '%m/%d/%y'))
     return start_time, end_time
 
 
@@ -28,6 +32,7 @@ def create_long_df(df):
         data_df['emissions_quantity_units'] = 'tonnes'
         if data_column.endswith('GWP'):
             data_df['emitted_product_formula'] = 'CO2e'
+            # TO DO: check equivalency conversion, not working on "other-onsite-fuel-usage-test_20220403" file
             equivalency = re.findall(r'\d{2,3}', data_column.strip('GWP')[-4:])[0] + '-year'
             data_df['carbon_equivalency_method'] = equivalency
         else:
@@ -52,10 +57,14 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     climate_trace_dictionary = import_data_from_local(
-            'climate-trace',
+            reporting_entity='climate-trace',
             path_to_data=args.datadir,
             verbose=args.verbose)
 
+    warnings = []
+    errors = []
+
+    # Loop through sectors, validating each table
     for key, df in climate_trace_dictionary.items():
         sector = key.split('_')[0]
         date = key.split('_')[1] # do something with the date later to get version
@@ -65,20 +74,41 @@ if __name__ == '__main__':
         except KeyError:
             pass
 
-        df = df.rename(columns={'begin_date': 'start_time',
+
+        #### Step 1: check that input file matches internal CT specification
+        # Manually old-style timestamps if necessary before checking CT specification
+        if 'start_date' in df and 'end_date' in df:
+            if not ermin_syntax.is_valid_timestamp(df.at[0,'start_date']):
+                try: 
+                    df['start_date'], df['end_date'] = zip(*df.apply(year_to_datetime, axis=1))
+                except ValueError:
+                    errors.append(sector + ': Dates to not appear in YYYY-MM-DD or MM/DD/YY format')
+
+        # USE CT specification to check input data before doing conversions
+        warnings, errors = eev.check_input_dataframe(df, spec_file = args.ct_specification,
+                                                     allow_unknown_stringtypes=True)
+        if len(warnings) > 0:
+            print('\nThere were ' + str(len(warnings)) + " warnings when checking sector file " + key + " against internal CT specification:")
+            print(warnings)
+        if len(errors) > 0:
+            print('\nThere were ' + str(len(errors)) + " errors when checking sector file " + key + " against internal CT specification:")
+            print(errors)
+            # If Errors when checking CT spec, terminate now;  do not continue
+            raise ValueError('Sector ' + key + ' did not match internal CT specification. Stopping before conversion to ERMIN format.')
+
+
+        #### Step 2: Now do conversions/additions to fit ERMIN format
+        df = df.rename(columns={'start_date': 'start_time',
                            'end_date': 'end_time',
                            'iso3_country': 'producing_entity_id'})
-        print(key)
-        print(df.columns)        
-
-        df['start_time'], df['end_time'] = zip(*df.apply(year_to_datetime, axis=1))
-
         reshaped_df = create_long_df(df)
-        raise SystemExit(0)
+
         reshaped_df['original_inventory_sector'] = sector
         reshaped_df['reporting_entity'] = 'climate-trace'
+        
+        # TO DO 
         # test with ermin_validator
-         # write empty csv with missing headers
+        # write empty csv with missing headers
 
 
 
