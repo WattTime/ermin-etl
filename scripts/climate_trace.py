@@ -75,7 +75,7 @@ if __name__ == '__main__':
             pass
 
 
-        #### Step 1: check that input file matches internal CT specification
+        #### Step 0: Perform any manual hacking of input file to allow non-compliant inputs
         # Manually old-style timestamps if necessary before checking CT specification
         if 'start_date' in df and 'end_date' in df:
             if not ermin_syntax.is_valid_timestamp(df.at[0,'start_date']):
@@ -84,6 +84,8 @@ if __name__ == '__main__':
                 except ValueError:
                     errors.append(sector + ': Dates to not appear in YYYY-MM-DD or MM/DD/YY format')
 
+
+        #### Step 1: check that input file matches internal CT specification and exit if not
         # USE CT specification to check input data before doing conversions
         warnings, errors = eev.check_input_dataframe(df, spec_file = args.ct_specification,
                                                      allow_unknown_stringtypes=True)
@@ -97,7 +99,7 @@ if __name__ == '__main__':
             raise ValueError('Sector ' + key + ' did not match internal CT specification. Stopping before conversion to ERMIN format.')
 
 
-        #### Step 2: Now do conversions/additions to fit ERMIN format
+        #### Step 2: Do conversions/additions to fit ERMIN format
         df = df.rename(columns={'start_date': 'start_time',
                            'end_date': 'end_time',
                            'iso3_country': 'producing_entity_id'})
@@ -107,9 +109,9 @@ if __name__ == '__main__':
         reshaped_df['reporting_entity'] = 'climate-trace'
         
         # TO DO 
-        # test with ermin_validator
-        # write empty csv with missing headers
-
-
-
+        #### Step 2.5: (Suggestion only) Load a key:value CSV if provided on command line,
+        ####           fill in any expected missing columns intelligently
+        #### Step 3: Test with ERMIN validator, get missing columns/fields
+        #### Step 4: If missing columns/data, write empty key:value CSV with missing headers and exit
+        #### Step 5: If nothing missing, then proceed to submit
 
