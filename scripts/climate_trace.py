@@ -2,6 +2,7 @@ import pandas as pd
 from datetime import datetime
 import re
 from utils.import_data import import_data_from_local
+import argparse
 
 
 def year_to_datetime(x):
@@ -38,7 +39,21 @@ def create_long_df(df):
 
 if __name__ == '__main__':
 
-    climate_trace_dictionary = import_data_from_local('climate-trace')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-c','--ct_specification', metavar='filename', type=str, 
+                        help='Path to CSV file giving CT specification.')
+    parser.add_argument('-s','--ermin_specification', metavar='filename', type=str, 
+                        help='Path to CSV file giving ERMIN specification.')
+    parser.add_argument('-d','--datadir', metavar='filename', type=str, default=None,
+                        help='Path to directory containing input data (default None).')
+    parser.add_argument('-a','--all_errors', action='store_true',
+                        help='Print all warnings and errors to stdout (default print up to 10).')
+    parser.add_argument('-v', '--verbose', help='More verbose output',
+                        action='store_true')
+    args = parser.parse_args()
+
+
+    climate_trace_dictionary = import_data_from_local('climate-trace', args.datadir)
 
     for key, df in climate_trace_dictionary.items():
         sector = key.split('_')[0]
