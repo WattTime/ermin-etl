@@ -8,34 +8,64 @@ import datetime
 # Such as which years need to be included.
 # These are hard-coded for now and subject to change.
 def check_ct_requirements(input_df,
-						  max_start_date=datetime.date(2015, 1, 1),
-						  min_end_date=datetime.date(2021,12,31)):
-	"""Check entire input data frame against spec file
-	          
-	   Data for a country must include all years between max_start_year
-	   and min_end_year, inclusive.
+                          max_start_date=datetime.date(2015, 1, 1),
+                          min_end_date=datetime.date(2021,12,31)):
+    """Check entire input data frame against spec file
+              
+       Data for a country must include all years between max_start_year
+       and min_end_year, inclusive.
 
-	   Parameters:
-	   input_df (DataFrame): Emissions report DataFrame
-	   max_start_date (datetime): data for a country must begin no later than this year
-	   min_end_date (datetime): data for a country must end no earlier than this year
+       Full requirements per internal communication:
+       - UI is expecting the year ranges to be within the same year
+         (start_date & end_date). So, if start_date = "2015-01-01"
+         and end_date = "2016-01-01". Reject data. Date ranges must
+         fall within the same year. 
+       - For all countries the data range must include 2015 to 2021.
+         If we have data with 2022 data should not be a problem. 
+       - (TO DO) Data should have all the countries in the Climate TRACE country
+         dictionary
+       - (TO DO) For CO2_emissions_tonnes, CH4_emissions_tonnes,N2O_emissions_tonnes,
+         total_CO2e_100yrGWP,total_CO2e_20yrGWP for all sectors
+         except "forest-sink" and "net-forest-emissions" the values should either 
+         be an empty object "NULL,none,nan" or "positive float numbers". We 
+         should only accept "negative float numbers" for "forest-sink" and 
+         "net-forest-emissions".
 
-	   Returns:
-	   warnings (list): a list of warnings encountered
-	   errors (list): a list of errors encountered
-	   newdf (DataFrame): only returned if repair
-	"""
+       Parameters:
+       input_df (DataFrame): Emissions report DataFrame
+       max_start_date (datetime): data for a country must begin no later than this year
+       min_end_date (datetime): data for a country must end no earlier than this year
 
-	# For each country
-	for country in input_df['iso3_country'].unique():
-		print(country)
-		dates = input_df.loc[input_df['iso3_country'] == country, 'start_date']
-		dates = [datetime.datetime.fromisoformat(date).date() for date in dates]
-		print(min(dates))
-		print(max(dates))
-		print(max_start_date)
-		print(min_end_date)
-		print(min(dates) <= max_start_date and max(dates) >= min_end_date)
+       Returns:
+       warnings (list): a list of warnings encountered
+       errors (list): a list of errors encountered
+    """
+    warnings = []
+    errors = []
+
+    # For each country, ensure aggregate dates span correct minimum rate
+    for country in input_df['iso3_country'].unique():
+        start_dates = input_df.loc[input_df['iso3_country'] == country, 'start_date']
+        start_dates = [datetime.datetime.fromisoformat(date).date() for date in start_dates]
+        end_dates = input_df.loc[input_df['iso3_country'] == country, 'end_date']
+        end_dates = [datetime.datetime.fromisoformat(date).date() for date in end_dates]
+        if min(start_dates) > max_start_date:
+            errors.append('Error: Data for country ' + country + ' starts on ' + str(min(start_dates)) + ', requirement is on or before ' + str(max_start_date))
+        if max(end_dates) < min_end_date:
+            errors.append('Error: Data for country ' + country + ' ends on ' + str(max(end_dates)) + ', requirement is on or after ' + str(min_end_date))
+
+    # For each entry, ensure time starts and ends in same year
+    for i in range(len(input_df)):
+        start_year = datetime.datetime.fromisoformat(input_df.at[i,'start_date']).year
+        end_year = datetime.datetime.fromisoformat(input_df.at[i,'end_date']).year
+        if start_year != end_year:
+            errors.append('Error: Entry spans more than one year: ' + str('\t'.join(input_df.loc[i,['start_date','end_date','iso3_country']].tolist())))
+
+    # Ensure all countries present
+    for country in COUNTRIES_DICT:
+        if not country in input_df['iso3_country']:
+            errors.append('Error: country ' + country + ' missing from input table.')
+    return warnings, errors
 
 # Wrapper function for using ERMIN module to validate data
 # But using climate_trace specification.
@@ -43,7 +73,7 @@ def check_ct_requirements(input_df,
 # namely {iso3_country} that needs special checking.
 def check_input_dataframe(input_df,
                           spec_file=None,
-                          repair=True,
+                          repair=False,
                           output_file=None,
                           allow_unknown_stringtypes=False):
     """Check entire input data frame against spec file
@@ -71,25 +101,33 @@ def check_input_dataframe(input_df,
 
     # check for any CT-specific types
     for row in spec:
-    	syntax = row['Value syntax']
-    	fieldname = row['Structured name']
-    	if syntax in ct_stringtypes and fieldname in df:
-    		# There is a field with CT-specific syntax,
-    		# see if it is contained in the inputs
-    		for value in df[fieldname]:
-	    		errors += check_syntax(value, syntax)
+        syntax = row['Value syntax']
+        fieldname = row['Structured name']
+        if syntax in ct_stringtypes and fieldname in df:
+            # There is a field with CT-specific syntax,
+            # see if it is contained in the inputs
+            for value in df[fieldname]:
+                errors += check_syntax(value, syntax)
 
-	# Now check remaining fields with ERMIN checker
-    warnings, newerrors, newdf = ev.check_input_dataframe(input_df, spec_file = spec_file,
+    # Now check remaining fields with ERMIN checker
+    if repair:
+        warnings, newerrors, newdf = ev.check_input_dataframe(input_df, spec_file = spec_file,
+                                                repair = repair,
                                                 allow_unknown_stringtypes=allow_unknown_stringtypes)
-    errors += newerrors
-    return warnings, errors
+        errors += newerrors
+        return warnings, errors, newdf
+    else:
+        warnings, newerrors = ev.check_input_dataframe(input_df, spec_file = spec_file,
+                                                repair = repair,
+                                                allow_unknown_stringtypes=allow_unknown_stringtypes)
+        errors += newerrors
+        return warnings, errors
 
 
 def check_syntax(value, syntax):
-	"""CT-specific syntax checker, e.g. for {iso3_country} stringtype
-	   
-	   Checks whether value matches stringtype.
+    """CT-specific syntax checker, e.g. for {iso3_country} stringtype
+       
+       Checks whether value matches stringtype.
 
        Currently, the only accepted string type is {iso3_country}
 
@@ -100,22 +138,22 @@ def check_syntax(value, syntax):
        Returns:
        list: list of errors, empty if no errors
     """
-	error_list = []
+    error_list = []
 
-	# First check non-string options (bool, int, float, timestamp)
-	if type(value) is not str:
-	    raise ValueError('Syntax is ' + stringtype + ', but this type was provided: ' + str(type(value)))
-	else:      
-	    # Now we know the value is a string
+    # First check non-string options (bool, int, float, timestamp)
+    if type(value) is not str:
+        raise ValueError('Syntax is ' + stringtype + ', but this type was provided: ' + str(type(value)))
+    else:      
+        # Now we know the value is a string
 
-	    # Test each syntax type
-	    if stringtype == "{iso3_country}":
-	    	if value not in COUNTRIES_DICT:
-	    		error_list.append('The value ' + value + ' was not a valid iso3_country code.')
-	    else:
-	        raise ValueError('Error: unknown climatetrace stringtype "' + stringtype + '"')
+        # Test each syntax type
+        if stringtype == "{iso3_country}":
+            if value not in COUNTRIES_DICT:
+                error_list.append('The value ' + value + ' was not a valid iso3_country code.')
+        else:
+            raise ValueError('Error: unknown climatetrace stringtype "' + stringtype + '"')
 
-	return error_list
+    return error_list
 
 COUNTRIES_DICT = {
     "SCG": "deleted",

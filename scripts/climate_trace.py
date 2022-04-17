@@ -1,5 +1,11 @@
 # run with
-# python climate_trace.py -d ../test2 -c ../templates/climate-trace-specification.csv
+#
+# Complete test data:
+# python climate_trace.py -d ../test/climate-trace -c ../templates/climate-trace-specification.csv -s ../templates/ermin-specification.csv
+#
+# Test data with errors:
+# python climate_trace.py -d ../test/climate-trace2-missing-data -c ../templates/climate-trace-specification.csv -s ../templates/ermin-specification.csv
+
 import pandas as pd
 from datetime import datetime
 import re
@@ -9,12 +15,10 @@ import argparse
 import ermin.syntax as ermin_syntax
 import ermin.validation as ev
 
-
 def year_to_datetime(x):
     start_time = datetime.isoformat(datetime.strptime(x.start_date, '%m/%d/%y'))
     end_time = datetime.isoformat(datetime.strptime(x.end_date, '%m/%d/%y'))
     return start_time, end_time
-
 
 def create_long_df(df):
     """iterate through each value column, appending it to an empty df to make a long df"""
@@ -93,25 +97,34 @@ if __name__ == '__main__':
         #### Step 1: check that input file matches internal CT specification and exit if not
         # USE CT specification to check input data before doing conversions
         warnings, errors = eev.check_input_dataframe(df, spec_file = args.ct_specification,
+                                                     repair = False,
                                                      allow_unknown_stringtypes=True)
         if len(warnings) > 0:
             print('\nThere were ' + str(len(warnings)) + " warnings when checking sector file " + key + " against internal CT specification:")
-            print(warnings)
+            print('\n'.join(warnings))
         if len(errors) > 0:
             print('\nThere were ' + str(len(errors)) + " errors when checking sector file " + key + " against internal CT specification:")
-            print(errors)
+            print('\n'.join(errors))
             # If Errors when checking CT spec, terminate now;  do not continue
             raise ValueError('Sector ' + key + ' did not match internal CT specification. Stopping before conversion to ERMIN format.')
 
         #### Step 1.5: check additional requirements specificed for CT data
-        eev.check_ct_requirements(df)
+        warnings, errors = eev.check_ct_requirements(df)
+        if len(warnings) > 0:
+            print('\nThere were ' + str(len(warnings)) + " warnings when checking sector file " + key + " against additional CT requirements:")
+            print('\n'.join(warnings))
+        if len(errors) > 0:
+            print('\nThere were ' + str(len(errors)) + " errors when checking sector file " + key + " against additional CT requirements:")
+            print('\n'.join(errors))
+            # If Errors when checking additional CT reqs, terminate now;  do not continue
+            raise ValueError('Sector ' + key + ' did not match additional CT requirements. Stopping before conversion to ERMIN format.')
+
 
         #### Step 2: Do conversions/additions to fit ERMIN format
         df = df.rename(columns={'start_date': 'start_time',
                            'end_date': 'end_time',
                            'iso3_country': 'producing_entity_id'})
         reshaped_df = create_long_df(df)
-
         reshaped_df['original_inventory_sector'] = sector
         reshaped_df['reporting_entity'] = 'climate-trace'
 
@@ -121,7 +134,8 @@ if __name__ == '__main__':
         print('\n'.join(warnings[:10]))
         print('\n'.join(errors[:10]))
         print(new_df)
-        raise SystemError(0)
+
+        raise SystemError(0) # End after first sector for dev purposes
 
         # TO DO 
         #### Step 2.5: (Suggestion only) Load a key:value CSV if provided on command line,
