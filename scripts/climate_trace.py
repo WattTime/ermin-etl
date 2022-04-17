@@ -7,6 +7,7 @@ from utils.import_data import import_data_from_local
 import utils.validation as eev
 import argparse
 import ermin.syntax as ermin_syntax
+import ermin.validation as ev
 
 
 def year_to_datetime(x):
@@ -76,7 +77,7 @@ if __name__ == '__main__':
 
 
         #### Step 0: Perform any manual hacking of input file to allow non-compliant inputs
-        # Manually old-style timestamps if necessary before checking CT specification
+        # Manually convert old-style timestamps if necessary before checking CT specification
         if 'start_date' in df and 'end_date' in df:
             if not ermin_syntax.is_valid_timestamp(df.at[0,'start_date']):
                 try: 
@@ -107,6 +108,12 @@ if __name__ == '__main__':
 
         reshaped_df['original_inventory_sector'] = sector
         reshaped_df['reporting_entity'] = 'climate-trace'
+
+        warnings, errors, new_df = ev.check_input_dataframe(reshaped_df, spec_file=args.ermin_specification,repair=True)
+        print(warnings)
+        print(errors)
+        print(new_df)
+        raise SystemError(0)
         
         # TO DO 
         #### Step 2.5: (Suggestion only) Load a key:value CSV if provided on command line,
