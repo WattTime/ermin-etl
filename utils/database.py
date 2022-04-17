@@ -1,5 +1,6 @@
 import psycopg2
-
+from sqlalchemy import create_engine
+import pandas as pd
 CONN_INFO = {
     'DB_NAME': 'climatetrace',
     'DB_USER': 'ctraceadmin',
@@ -7,15 +8,27 @@ CONN_INFO = {
     'DB_HOST':  'rds-climate-trace.watttime.org'
 }
 
-def connect( CONN_INFO):
+
+def connect(CONN_INFO):
     '''Connect to database with info specified in connection info.
      Current options are 'staging' or 'production'
     Returns psycopg2 cursor'''
 
-    CON_STR = "host='{DB_HOST}' dbname='{DB_NAME}' user='{DB_USER}' password='{DB_PASS}'".format(**CONN_INFO)
+    db_connection_url = "postgresql+psycopg2://{}:{}@{}/{}".format(
+        CONN_INFO['DB_USER'],
+        CONN_INFO['DB_PASS'],
+        CONN_INFO['DB_HOST'],
+        CONN_INFO['DB_NAME']
+    )
 
-    conn = psycopg2.connect(CON_STR)
-    conn.set_session(autocommit=True)
-    cur = conn.cursor()
+    engine = create_engine(db_connection_url)
 
-    return cur
+    return engine
+
+
+def insert_clean_data(df):
+    engine = connect(CONN_INFO)
+    df.to_sql('ermin',
+              engine,
+              if_exists='append',
+              index=False )
