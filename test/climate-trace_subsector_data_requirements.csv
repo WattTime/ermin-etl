@@ -1,4 +1,4 @@
-﻿sector,subsector,begin_date,end_date,iso3_country,CO2_emissions_tonnes,CH4_emissions_tonnes,N2O_emissions_tonnes,total_CO2e_100yrGWP,total_CO2e_20yrGWP
+﻿sector,subsector,start_date,end_date,iso3_country,CO2_emissions_tonnes,CH4_emissions_tonnes,N2O_emissions_tonnes,total_CO2e_100yrGWP,total_CO2e_20yrGWP
 power,electricity-generation,TRUE,TRUE,TRUE,TRUE,FALSE,FALSE,TRUE,TRUE
 power,other-energy-use,TRUE,TRUE,TRUE,TRUE,FALSE,FALSE,TRUE,TRUE
 transportation,domestic-aviation,TRUE,TRUE,TRUE,TRUE,TRUE,TRUE,TRUE,TRUE

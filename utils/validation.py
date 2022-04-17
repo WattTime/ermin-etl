@@ -1,7 +1,41 @@
 # wraps CT-specific validation around ERMIN validators
 from ermin import validation as ev
 import pandas as pd
+import datetime
 
+
+# Function to check CT-specific requirements,
+# Such as which years need to be included.
+# These are hard-coded for now and subject to change.
+def check_ct_requirements(input_df,
+						  max_start_date=datetime.date(2015, 1, 1),
+						  min_end_date=datetime.date(2021,12,31)):
+	"""Check entire input data frame against spec file
+	          
+	   Data for a country must include all years between max_start_year
+	   and min_end_year, inclusive.
+
+	   Parameters:
+	   input_df (DataFrame): Emissions report DataFrame
+	   max_start_date (datetime): data for a country must begin no later than this year
+	   min_end_date (datetime): data for a country must end no earlier than this year
+
+	   Returns:
+	   warnings (list): a list of warnings encountered
+	   errors (list): a list of errors encountered
+	   newdf (DataFrame): only returned if repair
+	"""
+
+	# For each country
+	for country in input_df['iso3_country'].unique():
+		print(country)
+		dates = input_df.loc[input_df['iso3_country'] == country, 'start_date']
+		dates = [datetime.datetime.fromisoformat(date).date() for date in dates]
+		print(min(dates))
+		print(max(dates))
+		print(max_start_date)
+		print(min_end_date)
+		print(min(dates) <= max_start_date and max(dates) >= min_end_date)
 
 # Wrapper function for using ERMIN module to validate data
 # But using climate_trace specification.

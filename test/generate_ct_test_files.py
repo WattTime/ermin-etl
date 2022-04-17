@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-data_requirements = pd.read_csv('climate-trace_subsector_data_requiremnets.csv')
+data_requirements = pd.read_csv('climate-trace_subsector_data_requirements.csv')
 required_dates_countries = pd.read_csv('climate-trace_required_dates_countries.csv')
 
 

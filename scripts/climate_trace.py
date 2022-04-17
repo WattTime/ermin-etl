@@ -19,8 +19,8 @@ def year_to_datetime(x):
 def create_long_df(df):
     """iterate through each value column, appending it to an empty df to make a long df"""
 
-    long_df = pd.DataFrame(columns = ['start_time', 'end_time', 'producing_entity_id', 'emissions_quantity', \
-                                      'emissions_quantity_units', 'emitted_product_formula', 'carbon_equivalency_method'])
+    long_df = pd.DataFrame(columns = ['start_time', 'end_time', 'producing_entity_id', 'emission_quantity', \
+                                      'emission_quantity_units', 'emitted_product_formula', 'carbon_equivalency_method'])
 
     data_columns = ['CO2_emissions_tonnes', 'CH4_emissions_tonnes', 'N2O_emissions_tonnes', 'total_CO2e_20yrGWP', \
                 'total_CO2e_100yrGWP']
@@ -29,15 +29,19 @@ def create_long_df(df):
         anchor_columns = ['start_time', 'end_time', 'producing_entity_id']
         anchor_columns.append(data_column)
         data_df = df[anchor_columns].copy() # copy to avoid warning re: setting values in a slice
-        data_df.rename(columns={f'{data_column}': 'emissions_quantity'}, inplace=True)
-        data_df['emissions_quantity_units'] = 'tonnes'
+        data_df.rename(columns={f'{data_column}': 'emission_quantity'}, inplace=True)
+        data_df['emission_quantity_units'] = 'tonnes'
         if data_column.endswith('GWP'):
             data_df['emitted_product_formula'] = 'CO2e'
-            # TO DO: check equivalency conversion, not working on "other-onsite-fuel-usage-test_20220403" file
-            equivalency = re.findall(r'\d{2,3}', data_column.strip('GWP')[-4:])[0] + '-year'
+            if data_column == 'total_CO2e_100yrGWP':
+                equivalency = '100-year'
+            elif data_column == 'total_CO2e_20yrGWP':
+                equivalency = '20-year'
             data_df['carbon_equivalency_method'] = equivalency
         else:
             data_df['emitted_product_formula'] = data_column.split('_')[0]
+            data_df['carbon_equivalency_method'] = "NA"
+
         long_df = pd.concat([long_df, data_df]) # use concat as append was deprecated
     return long_df
 
@@ -99,6 +103,8 @@ if __name__ == '__main__':
             # If Errors when checking CT spec, terminate now;  do not continue
             raise ValueError('Sector ' + key + ' did not match internal CT specification. Stopping before conversion to ERMIN format.')
 
+        #### Step 1.5: check additional requirements specificed for CT data
+        eev.check_ct_requirements(df)
 
         #### Step 2: Do conversions/additions to fit ERMIN format
         df = df.rename(columns={'start_date': 'start_time',
@@ -109,12 +115,14 @@ if __name__ == '__main__':
         reshaped_df['original_inventory_sector'] = sector
         reshaped_df['reporting_entity'] = 'climate-trace'
 
+        print(reshaped_df)
+
         warnings, errors, new_df = ev.check_input_dataframe(reshaped_df, spec_file=args.ermin_specification,repair=True)
-        print(warnings)
-        print(errors)
+        print('\n'.join(warnings[:10]))
+        print('\n'.join(errors[:10]))
         print(new_df)
         raise SystemError(0)
-        
+
         # TO DO 
         #### Step 2.5: (Suggestion only) Load a key:value CSV if provided on command line,
         ####           fill in any expected missing columns intelligently
