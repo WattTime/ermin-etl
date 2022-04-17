@@ -66,6 +66,7 @@ def check_ct_requirements(input_df,
     for country in COUNTRIES_DICT:
         if not country in countrylist:
             errors.append('Error: country ' + country + ' missing from input table.')
+
     return warnings, errors
 
 # Wrapper function for using ERMIN module to validate data
