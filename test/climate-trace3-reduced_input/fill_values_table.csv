@@ -1,0 +1,12 @@
+rice-cultivation,unfccc_annex_1_category,3.C  Rice Cultivation
+rice-cultivation,data_version,0.9
+rice-cultivation,data_version_changelog,Test changelog 1
+rice-cultivation,reporting_timestamp,2022-04-17
+aluminum,unfccc_annex_1_category,2.C.3  Aluminium Production
+aluminum,data_version,0.9
+aluminum,data_version_changelog,Test changelog 2
+aluminum,reporting_timestamp,2022-04-17
+forest-sink,unfccc_annex_1_category,4.A.2  Land Converted to Forest Land
+forest-sink,data_version,0.9
+forest-sink,data_version_changelog,Test changelog 3
+forest-sink,reporting_timestamp,2022-04-17

@@ -87,6 +87,7 @@ def check_ct_requirements(input_df, sector,
                             errors.append('Error: Negative ' + emission_column + ' emissions ' + str(emissions_val) + ' reported in ' + year + ' for country ' + country)
                     except ValueError:
                         errors.append('Could not check >=0 status of ' + emission_column + ' value ' + emissions_val + ' reported in ' + year + ' for country ' + 'country because could not convert to float.')
+
     return warnings, errors
 
 # Wrapper function for using ERMIN module to validate data

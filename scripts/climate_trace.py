@@ -1,5 +1,14 @@
 # run with
 #
+# Using reduced test data:
+# python climate_trace.py -d ../test/climate-trace3-reduced_input -c ../templates/climate-trace-specification.csv -s ../templates/ermin-specification.csv -v -o errors.txt
+#
+# Using reduced test data, write missing values to CSV
+# python climate_trace.py -d ../test/climate-trace3-reduced_input -c ../templates/climate-trace-specification.csv -s ../templates/ermin-specification.csv -v -o errors.txt -M missing_values.csv
+#
+# Using reduced test data, fill missing values from CSV
+# time python climate_trace.py -d ../test/climate-trace3-reduced_input -c ../templates/climate-trace-specification.csv -s ../templates/ermin-specification.csv -v -o errors.txt -m ../test/climate-trace3-reduced_input/fill_values_table.csv
+#
 # Complete test data:
 # python climate_trace.py -d ../test/climate-trace -c ../templates/climate-trace-specification.csv -s ../templates/ermin-specification.csv
 #
@@ -14,6 +23,8 @@ import utils.validation as eev
 import argparse
 import ermin.syntax as ermin_syntax
 import ermin.validation as ev
+from collections import defaultdict
+from pathlib import Path
 
 def year_to_datetime(x):
     start_time = datetime.isoformat(datetime.strptime(x.start_date, '%m/%d/%y'))
@@ -61,6 +72,12 @@ if __name__ == '__main__':
                         help='Path to directory containing input data (default None).')
     parser.add_argument('-a','--all_errors', action='store_true',
                         help='Print all warnings and errors to stdout (default print up to 10).')
+    parser.add_argument('-o','--error_output', metavar='filename', type=str, default=None,
+                        help='Path to output text file to contain all warnings and errors.')
+    parser.add_argument('-m','--missing_value_input', metavar='filename', type=str, default=None,
+                        help='Missing value input file (expects sector, field, value CSV to fill missing values).')
+    parser.add_argument('-M','--missing_value_output', metavar='filename', type=str, default=None,
+                        help='Missing value output file (will write sector, field, NULL CSV for each missing field).')
     parser.add_argument('-v', '--verbose', help='More verbose output',
                         action='store_true')
     args = parser.parse_args()
@@ -70,14 +87,27 @@ if __name__ == '__main__':
             path_to_data=args.datadir,
             verbose=args.verbose)
 
-    warnings = []
-    errors = []
+    ct_warnings = defaultdict(list) # from CT specification checking, keyed by sector
+    ct_errors = defaultdict(list) # from CT specification checking, keyed by sector
+    ermin_warnings = defaultdict(list) # from ERMIN specification checking, keyed by sector
+    ermin_errors = defaultdict(list) # from ERMIN specification checking, keyed by sector
+    missing_values = {} # dict of missing fields keyed by sector
+    fill_values = defaultdict(list) # dict of lists of [column, value], keyed by sector
+
+    # Load missing values fill table, if given
+    if args.missing_value_input is not None:
+        with open(args.missing_value_input, 'r') as f:
+            for line in f:
+                words = line.split(',')
+                # format of fill_values is {sector:[(column, value), (column, value),...]}
+                fill_values[words[0]].append((words[1],words[2]))
 
     # Loop through sectors, validating each table
     for key, df in climate_trace_dictionary.items():
         sector = key.split('_')[0]
         date = key.split('_')[1] # do something with the date later to get version
-
+        if args.verbose:
+            print("Sector: " + sector)
         try:
             df = df.drop(columns=['Unnamed: 0'])
         except KeyError:
@@ -100,25 +130,24 @@ if __name__ == '__main__':
                                                      repair = False,
                                                      allow_unknown_stringtypes=True)
         if len(warnings) > 0:
-            print('\nThere were ' + str(len(warnings)) + " warnings when checking sector file " + key + " against internal CT specification:")
+            print('\nThere were ' + str(len(warnings)) + " warnings when checking sector file " + sector + " against internal CT specification:")
             print('\n'.join(warnings))
+            ct_warnings[sector] += warnings
         if len(errors) > 0:
-            print('\nThere were ' + str(len(errors)) + " errors when checking sector file " + key + " against internal CT specification:")
+            print('\nThere were ' + str(len(errors)) + " errors when checking sector file " + sector + " against internal CT specification:")
             print('\n'.join(errors))
             # If Errors when checking CT spec, terminate now;  do not continue
-            raise ValueError('Sector ' + key + ' did not match internal CT specification. Stopping before conversion to ERMIN format.')
+            errors.append('Sector ' + sector + ' did not match internal CT specification. Skipping sector before checking additional CT requirements.')
+            ct_errors[sector] += errors
+            continue # Continue to next sector.
 
         #### Step 1.5: check additional requirements specificed for CT data
-        warnings, errors = eev.check_ct_requirements(df, sector=key)
-        if len(warnings) > 0:
-            print('\nThere were ' + str(len(warnings)) + " warnings when checking sector file " + key + " against additional CT requirements:")
-            print('\n'.join(warnings))
+        warnings, errors = eev.check_ct_requirements(df, sector=sector)
+        ct_warnings[sector] += warnings
         if len(errors) > 0:
-            print('\nThere were ' + str(len(errors)) + " errors when checking sector file " + key + " against additional CT requirements:")
-            print('\n'.join(errors))
-            # If Errors when checking additional CT reqs, terminate now;  do not continue
-            raise ValueError('Sector ' + key + ' did not match additional CT requirements. Stopping before conversion to ERMIN format.')
-
+            errors.append('Sector ' + sector + ' did not match additional CT requirements. Skipping sector before conversion to ERMIN format.')
+            ct_errors[sector] += errors
+            continue # Continue to next sector.
 
         #### Step 2: Do conversions/additions to fit ERMIN format
         df = df.rename(columns={'start_date': 'start_time',
@@ -127,20 +156,85 @@ if __name__ == '__main__':
         reshaped_df = create_long_df(df)
         reshaped_df['original_inventory_sector'] = sector
         reshaped_df['reporting_entity'] = 'climate-trace'
-
-        print(reshaped_df)
-
-        warnings, errors, new_df = ev.check_input_dataframe(reshaped_df, spec_file=args.ermin_specification,repair=True)
-        print('\n'.join(warnings[:10]))
-        print('\n'.join(errors[:10]))
-        print(new_df)
-
-        raise SystemError(0) # End after first sector for dev purposes
+        reshaped_df['producing_entity_name'] = ''
+        # Replace producing_entity with country name from COUNTRIES_DICT
+        for i,row in reshaped_df.iterrows():
+            country_code = row['producing_entity_id']
+            country_name = eev.COUNTRIES_DICT[country_code]
+            row['producing_entity_name'] = country_name
 
         # TO DO 
-        #### Step 2.5: (Suggestion only) Load a key:value CSV if provided on command line,
+        #### Step 2.5: Load a key:value CSV if provided on command line,
         ####           fill in any expected missing columns intelligently
+        if sector in fill_values:
+            for keyvalue_tuple in fill_values[sector]:
+                column = keyvalue_tuple[0]
+                value = keyvalue_tuple[1]
+                print('Sector ' + sector + ', filling column ' + column + ' with value ' + value)
+                reshaped_df[column] = value
+
+
         #### Step 3: Test with ERMIN validator, get missing columns/fields
-        #### Step 4: If missing columns/data, write empty key:value CSV with missing headers and exit
-        #### Step 5: If nothing missing, then proceed to submit
+        warnings, errors = ev.check_input_dataframe(reshaped_df, spec_file=args.ermin_specification,repair=False)
+
+        ermin_warnings[sector] += warnings
+        if len(errors) > 0:
+            errors.append('Sector ' + sector + ' did not match additional ERMIN specification. Stopping before DB upload.')
+            ermin_errors[sector] += errors
+            continue # skip to next sector; do not continue to process this sector
+
+        #### TO DO: Step 4: If nothing missing, then proceed to submit to DB
+
+
+
+    #### All sectors processed, report errors (and save to file)
+    for key in ct_errors:
+        print('\nSector ' + key + ' encountered errors when checking CT requirements, ERMIN conversion skipped (printing up to 10):')
+        print('\n'.join(ct_errors[key][:10]))
+
+    for key in ermin_errors:
+        print('\nSector ' + key + ' encountered errors when checking ERMIN requirements, DB upload skipped (printing up to 10):')
+        print('\n'.join(ermin_errors[key][:10]))
+
+    if args.error_output is not None:
+        print('Writing all warnings and errors to output file ' + args.error_output)
+        # write new output file containing all warnings and errors
+        path = Path(args.error_output)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(args.error_output,'w') as f:
+            for key in climate_trace_dictionary.keys():
+                sector = key.split('_')[0]
+                if len(ct_warnings[sector]) > 0:
+                    f.write('\nSector ' + sector + ' encountered warnings when checking CT requirements:')
+                    f.write('\n'.join(ct_warnings[sector]))
+                if len(ct_errors[sector]) > 0:
+                    f.write('\nSector ' + sector + ' encountered errors when checking CT requirements:')
+                    f.write('\n'.join(ct_warnings[sector]))
+                if len(ermin_warnings[sector]) > 0:
+                    f.write('\nSector ' + sector + ' encountered warnings when checking ERMIN requirements:')
+                    f.write('\n'.join(ermin_warnings[sector]))
+                if len(ermin_errors[sector]) > 0:
+                    f.write('\nSector ' + sector + ' encountered errors when checking ERMIN requirements:')
+                    f.write('\n'.join(ermin_warnings[sector]))
+
+
+    #### Step 5: If missing columns/data, write empty key:value CSV with missing headers and exit
+    # Write missing value output file if requested
+    if args.missing_value_output is not None:
+        print('Writing missing columns CSV to output file ' + args.missing_value_output)
+        # write new output file containing missing values in CSV forma
+        path = Path(args.missing_value_output)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(args.missing_value_output,'w') as f:
+            for key in climate_trace_dictionary.keys():
+                sector = key.split('_')[0]
+                if sector in ermin_errors:
+                    errors = ermin_errors[sector]
+                    # find all missing columns, e.g. errors in this format
+                    # Missing this required column: "unfccc_annex_1_category".
+                    for error in errors:
+                        if error.startswith('Missing this required column: "'):
+                            column = error[31:-2] # remove the start and end of the error
+                            f.write(','.join([sector, column,'NULL']) + '\n')
+
 
