@@ -109,7 +109,7 @@ if __name__ == '__main__':
             raise ValueError('Sector ' + key + ' did not match internal CT specification. Stopping before conversion to ERMIN format.')
 
         #### Step 1.5: check additional requirements specificed for CT data
-        warnings, errors = eev.check_ct_requirements(df)
+        warnings, errors = eev.check_ct_requirements(df, sector=key)
         if len(warnings) > 0:
             print('\nThere were ' + str(len(warnings)) + " warnings when checking sector file " + key + " against additional CT requirements:")
             print('\n'.join(warnings))

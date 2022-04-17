@@ -7,9 +7,11 @@ import datetime
 # Function to check CT-specific requirements,
 # Such as which years need to be included.
 # These are hard-coded for now and subject to change.
-def check_ct_requirements(input_df,
+def check_ct_requirements(input_df, sector,
                           max_start_date=datetime.date(2015, 1, 1),
-                          min_end_date=datetime.date(2021,12,31)):
+                          min_end_date=datetime.date(2021,12,31),
+                          emissions_columns = ['CO2_emissions_tonnes', 'CH4_emissions_tonnes', 'N2O_emissions_tonnes', 'total_CO2e_100yrGWP','total_CO2e_20yrGWP']
+                          ):
     """Check entire input data frame against spec file
               
        Data for a country must include all years between max_start_year
@@ -22,7 +24,7 @@ def check_ct_requirements(input_df,
          fall within the same year. 
        - For all countries the data range must include 2015 to 2021.
          If we have data with 2022 data should not be a problem. 
-       - (TO DO) Data should have all the countries in the Climate TRACE country
+       - Data should have all the countries in the Climate TRACE country
          dictionary
        - (TO DO) For CO2_emissions_tonnes, CH4_emissions_tonnes,N2O_emissions_tonnes,
          total_CO2e_100yrGWP,total_CO2e_20yrGWP for all sectors
@@ -33,8 +35,11 @@ def check_ct_requirements(input_df,
 
        Parameters:
        input_df (DataFrame): Emissions report DataFrame
+       sector (str): sector name (e.g. "forest-sink")
        max_start_date (datetime): data for a country must begin no later than this year
        min_end_date (datetime): data for a country must end no earlier than this year
+       emissions_columns (list): list of names of columns containing emissions values
+                                 (i.e. columns to be checked for negative values)
 
        Returns:
        warnings (list): a list of warnings encountered
@@ -67,6 +72,21 @@ def check_ct_requirements(input_df,
         if not country in countrylist:
             errors.append('Error: country ' + country + ' missing from input table.')
 
+    # Ensure nan or positive float for all sectors and all emissions quantities
+    # except for "forest-sink" and "net-forest-emissions"
+    if sector not in ['forest-sink','net-forest-emissions']:
+        for i in range(len(input_df)):
+            for emission_column in emissions_columns:
+                emissions_val = input_df.at[i,emission_column]
+                year = str(datetime.datetime.fromisoformat(input_df.at[i,'end_date']).year)
+                country = input_df.at[i,'iso3_country']
+                if emissions_val != '' and emissions_val != 'NULL':
+                    try:
+                        emissions_val = float(emissions_val)
+                        if emissions_val < 0:
+                            errors.append('Error: Negative ' + emission_column + ' emissions ' + str(emissions_val) + ' reported in ' + year + ' for country ' + country)
+                    except ValueError:
+                        errors.append('Could not check >=0 status of ' + emission_column + ' value ' + emissions_val + ' reported in ' + year + ' for country ' + 'country because could not convert to float.')
     return warnings, errors
 
 # Wrapper function for using ERMIN module to validate data
