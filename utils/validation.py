@@ -62,8 +62,9 @@ def check_ct_requirements(input_df,
             errors.append('Error: Entry spans more than one year: ' + str('\t'.join(input_df.loc[i,['start_date','end_date','iso3_country']].tolist())))
 
     # Ensure all countries present
+    countrylist = input_df['iso3_country'].unique()
     for country in COUNTRIES_DICT:
-        if not country in input_df['iso3_country']:
+        if not country in countrylist:
             errors.append('Error: country ' + country + ' missing from input table.')
     return warnings, errors
 
