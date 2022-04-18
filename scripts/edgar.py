@@ -1,7 +1,6 @@
 import pandas as pd
 from datetime import datetime
 from utils.import_data import import_data_from_local
-from utils.adding_missing_info import *
 import re
 import numpy as np
 from ermin.validation import *
@@ -11,6 +10,7 @@ from io import StringIO
 # notes on any manual manipulation required before using the following script to clean edgar
 # added 'edgar_' to beginning of filename
 # in edgar_EDGARv6.0_FT2020_fossil_CO2_GHG_booklet2021 sheet, deleted info tab (was causing parser error)
+# in edgar v60-N2O-1970-2018_20220414, manualy converted year columns to number in excel
 
 def get_header_info(raw_df):
     df_header = raw_df.set_index('Content:')
@@ -101,7 +101,8 @@ if __name__ == "__main__":
         df = check_for_nan_columns(df)
         df = clean_column_names(df)
         year_columns= [col for col in df.columns if re.match(r'\d{4}', str(col)) is not None]
-        # summing bio and fossil totals for each country/sector
+        df[year_columns] = df[year_columns].astype(float) # convert all numeric columns to floats
+         # summing bio and fossil totals for each country/sector
         df = df.groupby(by = ['producing_entity_name', 'producing_entity_id','original_inventory_sector'], as_index=False)[year_columns].sum()
         df = df.melt(id_vars = ['producing_entity_id', 'producing_entity_name', 'original_inventory_sector'],
                      var_name = 'year',
@@ -112,8 +113,11 @@ if __name__ == "__main__":
         df['emission_quantity_units'] = emissions_quantity_units
         df['measurement_method_doi_or_url'] = measurement_method_doi_or_url
         df['reporting_entity'] = 'edgar'
-        print(df.dtypes)
+        sectors.append(df.original_inventory_sector.unique())
         warnings, errors, new_df = check_input_dataframe(df, spec_file='/Users/christyjlewis/ermin-etl/templates/ermin-specification.csv')
+
+
+print(sectors)
 
 # clean  data
 # add extra information
