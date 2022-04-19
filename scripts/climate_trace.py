@@ -83,9 +83,11 @@ def main(ct_specification, ermin_specification, datadir, all_errors, error_outpu
             for line in f:
                 words = line.split(',')
                 # format of fill_values is {sector:[(column, value), (column, value),...]}
-                fill_values[words[0]].append((words[1],words[2]))
+                fill_values[words[0].strip()].append((words[1].strip(),words[2].strip()))
 
     # Loop through sectors, validating each table
+    reshaped_clean_data = {}
+
     for key, df in climate_trace_dictionary.items():
         sector = key.split('_')[0]
         date = key.split('_')[1] # do something with the date later to get version
@@ -159,7 +161,7 @@ def main(ct_specification, ermin_specification, datadir, all_errors, error_outpu
 
 
         #### Step 3: Test with ERMIN validator, get missing columns/fields
-        warnings, errors = ev.check_input_dataframe(reshaped_df, spec_file=ermin_specification,repair=False)
+        warnings, errors, reshaped_df = ev.check_input_dataframe(reshaped_df, spec_file=ermin_specification,repair=True)
 
         ermin_warnings[sector] += warnings
         if len(errors) > 0:
@@ -168,7 +170,7 @@ def main(ct_specification, ermin_specification, datadir, all_errors, error_outpu
             continue # skip to next sector; do not continue to process this sector
 
         #### TO DO: Step 4: If nothing missing, then proceed to submit to DB
-
+        reshaped_clean_data[sector] = reshaped_df
 
 
     #### All sectors processed, report errors (and save to file)
@@ -199,7 +201,7 @@ def main(ct_specification, ermin_specification, datadir, all_errors, error_outpu
                     f.write('\n'.join(ermin_warnings[sector]))
                 if len(ermin_errors[sector]) > 0:
                     f.write('\nSector ' + sector + ' encountered errors when checking ERMIN requirements:')
-                    f.write('\n'.join(ermin_warnings[sector]))
+                    f.write('\n'.join(ermin_errors[sector]))
 
 
     #### Step 5: If missing columns/data, write empty key:value CSV with missing headers and exit
@@ -221,6 +223,9 @@ def main(ct_specification, ermin_specification, datadir, all_errors, error_outpu
                             column = error[31:-2] # remove the start and end of the error
                             f.write(','.join([sector, column,'NULL']) + '\n')
 
+
+
+    return reshaped_clean_data, errors, warnings
 
 if __name__ == '__main__':
 

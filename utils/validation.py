@@ -74,7 +74,7 @@ def check_ct_requirements(input_df, sector,
 
     # Ensure nan or positive float for all sectors and all emissions quantities
     # except for "forest-sink" and "net-forest-emissions"
-    if sector not in ['forest-sink','net-forest-emissions']:
+    if sector not in ['forest-sink','net-forest-emissions','other-agricultural-soil-emissions']:
         for i in range(len(input_df)):
             for emission_column in emissions_columns:
                 emissions_val = input_df.at[i,emission_column]
@@ -98,7 +98,8 @@ def check_input_dataframe(input_df,
                           spec_file=None,
                           repair=False,
                           output_file=None,
-                          allow_unknown_stringtypes=False):
+                          allow_unknown_stringtypes=False
+                          ):
     """Check entire input data frame against spec file
               
        Optionally repairs missing data according to specification.

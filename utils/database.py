@@ -1,6 +1,11 @@
 import psycopg2
 from sqlalchemy import create_engine
+from sqlalchemy import types
 import pandas as pd
+from geoalchemy2 import types as gtypes
+
+gtypes.Geometry
+
 CONN_INFO = {
     'DB_NAME': 'climatetrace',
     'DB_USER': 'ctraceadmin',
@@ -27,8 +32,19 @@ def connect(CONN_INFO):
 
 
 def insert_clean_data(df):
+    if len(df.columns) != 38:
+        ermin_spec = pd.read_csv('../templates/ermin-specification.csv')
+        columns = ermin_spec['Structured name']
+        empty_ermin_df = pd.DataFrame(columns=columns)
+        empty_ermin_df[df.columns] = df
+
+    empty_ermin_df['reporting_timestamp'] = pd.to_datetime(empty_ermin_df['reporting_timestamp'])
+    empty_ermin_df['start_time'] = pd.to_datetime(empty_ermin_df['start_time'])
+    empty_ermin_df['end_time'] = pd.to_datetime(empty_ermin_df['end_time'])
+
     engine = connect(CONN_INFO)
-    df.to_sql('ermin',
+
+    empty_ermin_df.to_sql('ermin',
               engine,
               if_exists='append',
-              index=False )
+              index=False)

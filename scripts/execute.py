@@ -7,7 +7,7 @@ current_timestamp = datetime.now()
 
 record_missing_input = False
 fill_missing_columns = True
-push_to_db = False
+push_to_db = True
 
 kwargs = {
           'ct_specification': '../templates/climate-trace-specification.csv',
@@ -41,7 +41,7 @@ if __name__ == '__main__':
         filled_values = pd.read_csv(kwargs['missing_value_input'],
                                   names=['sector', 'missing_column', 'input'])
         idx = filled_values[filled_values.missing_column == 'reporting_timestamp'].index
-        filled_values.loc[idx, 'input'] = current_timestamp
+        filled_values.loc[idx, 'input'] = datetime.isoformat(current_timestamp)
         versions = pd.read_csv('versioning.csv')
 
         for sector in filled_values.sector.unique():
@@ -53,6 +53,16 @@ if __name__ == '__main__':
             filled_values.loc[version_idx, 'input'] = version
             filled_values.loc[changelog_idx, 'input'] = changelog
 
-        filled_values.to_csv(kwargs['missing_value_input'],header = False)
+        filled_values.to_csv(kwargs['missing_value_input'],header = False, index=False) # get rid of index when writing
 
-        main(**kwargs)
+        reshaped_clean_data, errors, warnings = main(**kwargs)
+
+    if push_to_db:
+        if len(errors) > 0:
+            print('Errors need to be resolved. Check errors report.')
+        else:
+            for key, value in reshaped_clean_data.items():
+                value.to_csv(f'{key}.csv')
+                insert_clean_data(value)
+
+
